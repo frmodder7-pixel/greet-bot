@@ -18,7 +18,7 @@ from telebot.types import (InlineKeyboardMarkup, InlineKeyboardButton,
 # ══════════════════════════════════════════
 #  CONFIG — Edit these
 # ══════════════════════════════════════════
-TOKEN        = "YOUR_BOT_TOKEN_HERE"
+TOKEN        = "8759110609:AAG2xRZ9bIm_Hp6PlavYWT8HmjrM_wqfq7g"
 BOT_USERNAME = "Greetings122_bot"
 OWNER_ID     = 8873676178
 BRAND        = "Greetings & Quotes"
