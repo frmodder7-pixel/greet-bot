@@ -12,8 +12,8 @@ from datetime import datetime
 # ══════════════════════════════════════════
 #  CONFIG
 # ══════════════════════════════════════════
-TOKEN        = "YOUR_BOT_TOKEN_HERE"   # ← From @BotFather
-BOT_USERNAME = "YourBotUsername"        # ← Without @
+TOKEN        = "8759110609:AAG2xRZ9bIm_Hp6PlavYWT8HmjrM_wqfq7g"   # ← From @BotFather
+BOT_USERNAME = "Greetings122_bot"        # ← Without @
 OWNER_ID     = 8873676178
 BRAND        = "BLITEX"
 DATA_FILE    = "greet_data.json"
