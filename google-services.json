@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "829710589857",
+    "project_id": "blitex-wallhub",
+    "storage_bucket": "blitex-wallhub.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:829710589857:android:79d43404c440dd0b36f5e0",
+        "android_client_info": {
+          "package_name": "com.blitex.wallhub.wallhub_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "829710589857-d5hshatj5ec17cra54kd8uget1n2mirb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDUZn8PANihCAlcYb9IUN0k7qQutxVpd_I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "829710589857-d5hshatj5ec17cra54kd8uget1n2mirb.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
