@@ -9,7 +9,7 @@ from collections import defaultdict
 from datetime import datetime
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ChatPermissions
 
-TOKEN        = "8759110609:AAG2xRZ9bIm_Hp6PlavYWT8HmjrM_wqfq7g"   # ← paste your token
+TOKEN        = os.getenv("TOKEN", "YOUR_BOT_TOKEN_HERE")
 BOT_USERNAME = "Greetings122_bot"
 OWNER_ID     = 8873676178
 BRAND        = "Greetings & Quotes"
@@ -209,11 +209,17 @@ def cmd_start(msg):
     try:
         bot_chat = bot.get_chat(bot.get_me().id)
         if bot_chat.photo:
-            bot.send_photo(uid, bot_chat.photo.big_file_id,
+            file_info = bot.get_file(bot_chat.photo.big_file_id)
+            downloaded = bot.download_file(file_info.file_path)
+            import io
+            photo_buf = io.BytesIO(downloaded)
+            photo_buf.name = "photo.jpg"
+            bot.send_photo(uid, photo_buf,
                 caption=caption, reply_markup=kb, parse_mode="Markdown")
         else:
             bot.send_message(uid, caption, reply_markup=kb, parse_mode="Markdown")
-    except:
+    except Exception as e:
+        logging.warning(f"Start photo: {e}")
         bot.send_message(uid, caption, reply_markup=kb, parse_mode="Markdown")
 
 # ── NEW MEMBERS ──────────────────────────
@@ -249,11 +255,17 @@ def new_member(msg):
             try:
                 mc = bot.get_chat(member.id)
                 if mc.photo:
-                    bot.send_photo(cid, mc.photo.big_file_id,
+                    file_info = bot.get_file(mc.photo.big_file_id)
+                    downloaded = bot.download_file(file_info.file_path)
+                    import io
+                    photo_buf = io.BytesIO(downloaded)
+                    photo_buf.name = "photo.jpg"
+                    bot.send_photo(cid, photo_buf,
                         caption=text, parse_mode="Markdown", reply_markup=kb)
                 else:
                     bot.send_message(cid, text, parse_mode="Markdown", reply_markup=kb)
-            except:
+            except Exception as e:
+                logging.warning(f"Welcome photo: {e}")
                 bot.send_message(cid, text, parse_mode="Markdown", reply_markup=kb)
 
 # ── GROUP MESSAGES ───────────────────────
