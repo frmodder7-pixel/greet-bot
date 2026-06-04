@@ -17,6 +17,55 @@ QUOTE_TIME   = "08:00"
 DATA_FILE    = "greet_data.json"
 
 bot = telebot.TeleBot(TOKEN, parse_mode=None)
+# ══════════════════════════════════════════
+#  ANTI-SPAM SYSTEM
+# ══════════════════════════════════════════
+from collections import defaultdict
+import time as time_module
+
+# spam_data[chat_id][user_id] = [timestamps]
+spam_data   = defaultdict(lambda: defaultdict(list))
+warn_data   = defaultdict(lambda: defaultdict(int))  # warnings per user per group
+
+SPAM_LIMIT    = 5    # messages in SPAM_WINDOW seconds = spam
+SPAM_WINDOW   = 5    # seconds
+MAX_WARNINGS  = 3    # warnings before mute
+
+def check_spam(chat_id, user_id):
+    now = time_module.time()
+    timestamps = spam_data[chat_id][user_id]
+    # Remove old timestamps outside window
+    spam_data[chat_id][user_id] = [t for t in timestamps if now - t < SPAM_WINDOW]
+    spam_data[chat_id][user_id].append(now)
+    return len(spam_data[chat_id][user_id]) >= SPAM_LIMIT
+
+def get_warnings(chat_id, user_id):
+    return warn_data[chat_id][user_id]
+
+def add_warning(chat_id, user_id):
+    warn_data[chat_id][user_id] += 1
+    return warn_data[chat_id][user_id]
+
+def reset_warnings(chat_id, user_id):
+    warn_data[chat_id][user_id] = 0
+
+def is_admin(chat_id, user_id):
+    try:
+        member = bot.get_chat_member(chat_id, user_id)
+        return member.status in ["administrator", "creator"]
+    except: return False
+
+def mute_user(chat_id, user_id, seconds=300):
+    try:
+        from telebot.types import ChatPermissions
+        until = int(time_module.time()) + seconds
+        bot.restrict_chat_member(chat_id, user_id,
+            permissions=ChatPermissions(can_send_messages=False),
+            until_date=until)
+        return True
+    except: return False
+
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 
 # ── TRIGGERS ────────────────────────────
@@ -260,7 +309,33 @@ def new_member(msg):
 def handle_group(msg):
     text = msg.text.lower().strip()
     user = msg.from_user
-    register_group(msg.chat.id, msg.chat.title or "Group")
+    chat_id = msg.chat.id
+    uid = user.id
+    register_group(chat_id, msg.chat.title or "Group")
+
+    # Anti-spam check (skip for admins)
+    if not is_admin(chat_id, uid):
+        if check_spam(chat_id, uid):
+            try: bot.delete_message(chat_id, msg.message_id)
+            except: pass
+            warns = add_warning(chat_id, uid)
+            mention = get_mention(user)
+            remaining = MAX_WARNINGS - warns
+            if warns >= MAX_WARNINGS:
+                # Mute for 5 minutes
+                if mute_user(chat_id, uid, 300):
+                    reset_warnings(chat_id, uid)
+                    bot.send_message(chat_id,
+                        f"🔇 {mention} has been *muted for 5 minutes* due to spamming!\n"
+                        f"Please follow the group rules. ⚠️",
+                        parse_mode="Markdown")
+            else:
+                bot.send_message(chat_id,
+                    f"⚠️ {mention} please stop spamming!\n"
+                    f"*Warning {warns}/{MAX_WARNINGS}* — "
+                    f"{remaining} more warning(s) before mute! 🔇",
+                    parse_mode="Markdown")
+            return
 
     if len(text) <= 50:
         if contains(text, MORNING):
@@ -275,7 +350,7 @@ def handle_group(msg):
             send_greet(msg, BIRTHDAY_REPLIES, user); return
 
 # ── GROUP COMMANDS ────────────────────────
-@bot.message_handler(commands=["quote"], chat_types=["group","supergroup"])
+@bot.message_handler(commands=["quote"], func=lambda m: m.chat.type in ["group","supergroup","private"])
 def cmd_quote(msg):
     q, a = random.choice(QUOTES)
     now = datetime.now().strftime("%A, %d %B %Y")
@@ -289,7 +364,7 @@ def cmd_quote(msg):
         f"🤖 {BRAND_TAG}",
         reply_markup=react_kb(), parse_mode="Markdown")
 
-@bot.message_handler(commands=["joke"], chat_types=["group","supergroup"])
+@bot.message_handler(commands=["joke"], func=lambda m: m.chat.type in ["group","supergroup","private"])
 def cmd_joke(msg):
     bot.send_message(msg.chat.id,
         f"😂 *Joke Time!*\n"
@@ -299,7 +374,7 @@ def cmd_joke(msg):
         f"🤖 {BRAND_TAG}",
         reply_markup=react_kb(), parse_mode="Markdown")
 
-@bot.message_handler(commands=["fact"], chat_types=["group","supergroup"])
+@bot.message_handler(commands=["fact"], func=lambda m: m.chat.type in ["group","supergroup","private"])
 def cmd_fact(msg):
     bot.send_message(msg.chat.id,
         f"🧠 *Fun Fact!*\n"
@@ -309,7 +384,7 @@ def cmd_fact(msg):
         f"🤖 {BRAND_TAG}",
         reply_markup=react_kb(), parse_mode="Markdown")
 
-@bot.message_handler(commands=["poll"], chat_types=["group","supergroup"])
+@bot.message_handler(commands=["poll"], func=lambda m: m.chat.type in ["group","supergroup"])
 def cmd_poll(msg):
     polls = [
         ("What's your mood today? 😊", ["😄 Happy","😐 Okay","😔 Sad","🔥 Excited"]),
@@ -320,7 +395,7 @@ def cmd_poll(msg):
     q, opts = random.choice(polls)
     bot.send_poll(msg.chat.id, q, opts, is_anonymous=False)
 
-@bot.message_handler(commands=["togglequote"], chat_types=["group","supergroup"])
+@bot.message_handler(commands=["togglequote"], func=lambda m: m.chat.type in ["group","supergroup"])
 def cmd_togglequote(msg):
     db = load_db(); k = str(msg.chat.id)
     if k not in db["groups"]: db["groups"][k] = {"title": msg.chat.title, "quotes": True}
@@ -329,7 +404,7 @@ def cmd_togglequote(msg):
     save_db(db)
     bot.reply_to(msg, f"💡 Daily morning quotes: *{status}*", parse_mode="Markdown")
 
-@bot.message_handler(commands=["togglewelcome"], chat_types=["group","supergroup"])
+@bot.message_handler(commands=["togglewelcome"], func=lambda m: m.chat.type in ["group","supergroup"])
 def cmd_togglewelcome(msg):
     db = load_db(); k = str(msg.chat.id)
     if k not in db["groups"]: db["groups"][k] = {"title": msg.chat.title, "welcome": True}
@@ -338,7 +413,7 @@ def cmd_togglewelcome(msg):
     save_db(db)
     bot.reply_to(msg, f"👋 Welcome messages: *{status}*", parse_mode="Markdown")
 
-@bot.message_handler(commands=["help"], chat_types=["group","supergroup"])
+@bot.message_handler(commands=["help"], func=lambda m: True)
 def cmd_help_group(msg):
     bot.reply_to(msg,
         f"📋 *Commands*\n"
@@ -473,6 +548,93 @@ def callbacks(call):
                 uid, call.message.message_id,
                 reply_markup=kb, parse_mode="Markdown")
         except: pass
+
+
+# ── WARN / UNWARN (Admin only) ───────────
+@bot.message_handler(commands=["warn"], func=lambda m: m.chat.type in ["group","supergroup"])
+def cmd_warn(msg):
+    if not is_admin(msg.chat.id, msg.from_user.id):
+        bot.reply_to(msg, "❌ Admins only!"); return
+    if not msg.reply_to_message:
+        bot.reply_to(msg, "⚠️ Reply to a message to warn that user!"); return
+    target = msg.reply_to_message.from_user
+    if is_admin(msg.chat.id, target.id):
+        bot.reply_to(msg, "❌ Can\'t warn an admin!"); return
+    warns = add_warning(msg.chat.id, target.id)
+    mention = get_mention(target)
+    remaining = MAX_WARNINGS - warns
+    if warns >= MAX_WARNINGS:
+        if mute_user(msg.chat.id, target.id, 300):
+            reset_warnings(msg.chat.id, target.id)
+            bot.send_message(msg.chat.id,
+                f"🔇 {mention} has been *muted for 5 minutes!*\n"
+                f"Reason: Too many warnings! ⚠️",
+                parse_mode="Markdown")
+    else:
+        bot.send_message(msg.chat.id,
+            f"⚠️ *Warning issued!*\n"
+            f"User: {mention}\n"
+            f"Warnings: *{warns}/{MAX_WARNINGS}*\n"
+            f"{remaining} more = mute! 🔇",
+            parse_mode="Markdown")
+
+@bot.message_handler(commands=["unwarn"], func=lambda m: m.chat.type in ["group","supergroup"])
+def cmd_unwarn(msg):
+    if not is_admin(msg.chat.id, msg.from_user.id):
+        bot.reply_to(msg, "❌ Admins only!"); return
+    if not msg.reply_to_message:
+        bot.reply_to(msg, "⚠️ Reply to a message to remove warning!"); return
+    target = msg.reply_to_message.from_user
+    reset_warnings(msg.chat.id, target.id)
+    mention = get_mention(target)
+    bot.send_message(msg.chat.id,
+        f"✅ Warnings cleared for {mention}!", parse_mode="Markdown")
+
+@bot.message_handler(commands=["warnings"], func=lambda m: m.chat.type in ["group","supergroup"])
+def cmd_warnings(msg):
+    if not msg.reply_to_message:
+        bot.reply_to(msg, "⚠️ Reply to a message to check warnings!"); return
+    target = msg.reply_to_message.from_user
+    warns = get_warnings(msg.chat.id, target.id)
+    mention = get_mention(target)
+    bot.send_message(msg.chat.id,
+        f"📋 {mention} has *{warns}/{MAX_WARNINGS}* warnings",
+        parse_mode="Markdown")
+
+@bot.message_handler(commands=["mute"], func=lambda m: m.chat.type in ["group","supergroup"])
+def cmd_mute(msg):
+    if not is_admin(msg.chat.id, msg.from_user.id):
+        bot.reply_to(msg, "❌ Admins only!"); return
+    if not msg.reply_to_message:
+        bot.reply_to(msg, "⚠️ Reply to a message to mute that user!"); return
+    target = msg.reply_to_message.from_user
+    if is_admin(msg.chat.id, target.id):
+        bot.reply_to(msg, "❌ Can\'t mute an admin!"); return
+    mention = get_mention(target)
+    if mute_user(msg.chat.id, target.id, 3600):
+        bot.send_message(msg.chat.id,
+            f"🔇 {mention} has been *muted for 1 hour!*", parse_mode="Markdown")
+    else:
+        bot.reply_to(msg, "❌ Failed! Make sure I\'m an admin with restrict permissions.")
+
+@bot.message_handler(commands=["unmute"], func=lambda m: m.chat.type in ["group","supergroup"])
+def cmd_unmute(msg):
+    if not is_admin(msg.chat.id, msg.from_user.id):
+        bot.reply_to(msg, "❌ Admins only!"); return
+    if not msg.reply_to_message:
+        bot.reply_to(msg, "⚠️ Reply to unmute!"); return
+    target = msg.reply_to_message.from_user
+    try:
+        from telebot.types import ChatPermissions
+        bot.restrict_chat_member(msg.chat.id, target.id,
+            permissions=ChatPermissions(
+                can_send_messages=True, can_send_media_messages=True,
+                can_send_polls=True, can_send_other_messages=True))
+        mention = get_mention(target)
+        bot.send_message(msg.chat.id,
+            f"✅ {mention} has been *unmuted!*", parse_mode="Markdown")
+    except:
+        bot.reply_to(msg, "❌ Failed to unmute!")
 
 # ── ADMIN ─────────────────────────────────
 @bot.message_handler(commands=["admin"])
