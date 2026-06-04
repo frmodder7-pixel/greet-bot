@@ -5,10 +5,11 @@ pip install pyTelegramBotAPI schedule requests
 IMPORTANT: @BotFather → /setprivacy → DISABLE
 """
 import telebot, json, os, time, logging, random, threading, schedule
+from collections import defaultdict
 from datetime import datetime
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-TOKEN        = "8759110609:AAG2xRZ9bIm_Hp6PlavYWT8HmjrM_wqfq7g"
+TOKEN        = "YOUR_BOT_TOKEN_HERE"
 BOT_USERNAME = "Greetings122_bot"
 OWNER_ID     = 8873676178
 BRAND        = "Greetings & Quotes Bot"
@@ -20,9 +21,6 @@ bot = telebot.TeleBot(TOKEN, parse_mode=None)
 # ══════════════════════════════════════════
 #  ANTI-SPAM SYSTEM
 # ══════════════════════════════════════════
-from collections import defaultdict
-import time as time_module
-
 # spam_data[chat_id][user_id] = [timestamps]
 spam_data   = defaultdict(lambda: defaultdict(list))
 warn_data   = defaultdict(lambda: defaultdict(int))  # warnings per user per group
@@ -32,7 +30,7 @@ SPAM_WINDOW   = 5    # seconds
 MAX_WARNINGS  = 3    # warnings before mute
 
 def check_spam(chat_id, user_id):
-    now = time_module.time()
+    now = time.time()
     timestamps = spam_data[chat_id][user_id]
     # Remove old timestamps outside window
     spam_data[chat_id][user_id] = [t for t in timestamps if now - t < SPAM_WINDOW]
@@ -57,10 +55,9 @@ def is_admin(chat_id, user_id):
 
 def mute_user(chat_id, user_id, seconds=300):
     try:
-        from telebot.types import ChatPermissions
-        until = int(time_module.time()) + seconds
+        until = int(time.time()) + seconds
         bot.restrict_chat_member(chat_id, user_id,
-            permissions=ChatPermissions(can_send_messages=False),
+            permissions=telebot.types.ChatPermissions(can_send_messages=False),
             until_date=until)
         return True
     except: return False
@@ -627,9 +624,8 @@ def cmd_unmute(msg):
         bot.reply_to(msg, "⚠️ Reply to unmute!"); return
     target = msg.reply_to_message.from_user
     try:
-        from telebot.types import ChatPermissions
         bot.restrict_chat_member(msg.chat.id, target.id,
-            permissions=ChatPermissions(
+            permissions=telebot.types.ChatPermissions(
                 can_send_messages=True, can_send_media_messages=True,
                 can_send_polls=True, can_send_other_messages=True))
         mention = get_mention(target)
