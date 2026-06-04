@@ -8,7 +8,7 @@ import telebot, json, os, time, logging, random, threading, schedule
 from datetime import datetime
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-TOKEN        = "YOUR_BOT_TOKEN_HERE"
+TOKEN        = "8759110609:AAG2xRZ9bIm_Hp6PlavYWT8HmjrM_wqfq7g"
 BOT_USERNAME = "Greetings122_bot"
 OWNER_ID     = 8873676178
 BRAND        = "Greetings & Quotes Bot"
@@ -253,13 +253,14 @@ def cmd_start(msg):
         f"🤖 {BRAND_TAG}"
     )
     try:
-        photos = bot.get_user_profile_photos(bot.get_me().id, limit=1)
-        if photos.total_count > 0:
-            fid = photos.photos[0][0].file_id
+        bot_chat = bot.get_chat(bot.get_me().id)
+        if bot_chat.photo:
+            fid = bot_chat.photo.big_file_id
             bot.send_photo(uid, fid, caption=caption, reply_markup=kb, parse_mode="Markdown")
         else:
             bot.send_message(uid, caption, reply_markup=kb, parse_mode="Markdown")
-    except:
+    except Exception as e:
+        logging.warning(f"Start photo error: {e}")
         bot.send_message(uid, caption, reply_markup=kb, parse_mode="Markdown")
 
 # ── BOT ADDED TO GROUP ───────────────────
@@ -295,13 +296,14 @@ def new_member(msg):
             kb.add(InlineKeyboardButton("👋 Say Hi!", callback_data=f"sayhi_{member.id}_{get_name(member)}"))
             # Try to send with user profile photo
             try:
-                photos = bot.get_user_profile_photos(member.id, limit=1)
-                if photos.total_count > 0:
-                    fid = photos.photos[0][0].file_id
+                member_chat = bot.get_chat(member.id)
+                if member_chat.photo:
+                    fid = member_chat.photo.big_file_id
                     bot.send_photo(chat_id, fid, caption=text, parse_mode="Markdown", reply_markup=kb)
                 else:
                     bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
-            except:
+            except Exception as e:
+                logging.warning(f"Welcome photo error: {e}")
                 bot.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
 
 # ── GROUP MESSAGES ───────────────────────
